@@ -16,6 +16,7 @@ HWND hWndActive;								// 현재 활성화된 창입니다.
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 BOOL CALLBACK		EnumWindowsProc(HWND hWnd, LPARAM lparam);
 BOOL CALLBACK		EnumWindowsProcBack(HWND hWnd, LPARAM lparam);
@@ -59,7 +60,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     return (int) msg.wParam;
 }
 
-
+// 타이머마다 호출되는 콜백함수
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lparam) {
 
 	// 부모가 바탕화면인지
@@ -83,6 +84,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lparam) {
 	return TRUE;
 }
 
+// 주 창을 닫았을때 원래대로 되돌리는 콜백함수
 BOOL CALLBACK EnumWindowsProcBack(HWND hWnd, LPARAM lparam) {
 	// 부모가 바탕화면인지
 	if (GetParent(hWnd) == 0) {
@@ -144,7 +146,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	// TODO: Make this window substitute for Tray Icon with background process.
 	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-		100, 100, 0, 0, nullptr, nullptr, hInstance, nullptr);
+		0, 100, 0, 0, nullptr, nullptr, hInstance, nullptr);
 
 	if (!hWnd)
 	{
@@ -155,6 +157,26 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	UpdateWindow(hWnd);
 
 	return TRUE;
+}
+
+// 정보 대화 상자의 메시지 처리기입니다.
+INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+		return (INT_PTR)TRUE;
+
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		}
+		break;
+	}
+	return (INT_PTR)FALSE;
 }
 
 
@@ -178,6 +200,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			500,							// 0.5-second interval 
 			(TIMERPROC)NULL);               // no timer callback 
 		break;
+	case WM_COMMAND:
+	{
+
+		int wmId = LOWORD(wParam);
+		// 메뉴 선택을 구문 분석합니다.
+		switch (wmId)
+		{
+		case IDM_ABOUT:
+			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+			break;
+		case IDM_EXIT:
+			DestroyWindow(hWnd);
+			break;
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
+	}
+	break;
 	case WM_TIMER: 
 	{
 		// Get Current Active Window
