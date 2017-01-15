@@ -15,8 +15,8 @@ TCHAR szWindowClass[MAX_LOADSTRING];            // 기본 창 클래스 이름입니다.
 HWND hWndOld, hWndActive;						// 활성화된 창입니다.
 UINT const WMAPP_NOTIFYCALLBACK = WM_APP + 1;
 POINT pt;
-int ACTIVE = 95;
-int INACTIVE = 70;
+int ACTIVE = 90;
+int INACTIVE = 40;
 
 // 이 코드 모듈에 들어 있는 함수의 정방향 선언입니다.
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -26,6 +26,10 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 BOOL CALLBACK		EnumWindowsProc(HWND hWnd, LPARAM lparam);
 BOOL CALLBACK		EnumWindowsProcBack(HWND hWnd, LPARAM lparam);
+BOOL				AddNotificationIcon(HWND hWnd);
+BOOL				AddNotificationPopup(HWND hWnd);
+BOOL				DeleteNotificationIcon(void);
+void				ShowContextMenu(HWND hWnd, POINT pt);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -45,6 +49,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	// 전역 문자열을 초기화합니다.
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
 	LoadStringW(hInstance, IDC_LAYERWINDOWTRAY, szWindowClass, MAX_LOADSTRING);
+
+	// 중복 실행 방지
+	hWndOld = FindWindow(szWindowClass, szTitle);
+	if (hWndOld != NULL)
+	{
+		AddNotificationPopup(hWndOld);
+		SetForegroundWindow(hWndOld);
+		SendMessage(hWndOld, WMAPP_NOTIFYCALLBACK, 0, WM_CONTEXTMENU);
+		return 0;
+	}
+
 	MyRegisterClass(hInstance);
 
 	// 응용 프로그램 초기화를 수행합니다.
