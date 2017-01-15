@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{9ED304FE-4AEC-4945-B585-9FE12D7CDB4D}</ProjectGuid>
+    <ProjectGuid>{CC2741B2-783D-4D46-807B-7C4F29D1333E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>layerwindowtray</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>

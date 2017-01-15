@@ -4,13 +4,9 @@
 #include "stdafx.h"
 #include "layerwindowtray.h"
 #include <shellapi.h>
-#include <stdio.h>
+// #include <stdio.h>
 
 #define MAX_LOADSTRING 100
-
-#define ID_ACTIVE 1200
-#define ID_INACTIVE 1400
-#define ID_QUIT 1000
 
 // 전역 변수:
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
@@ -32,18 +28,19 @@ BOOL CALLBACK		EnumWindowsProc(HWND hWnd, LPARAM lparam);
 BOOL CALLBACK		EnumWindowsProcBack(HWND hWnd, LPARAM lparam);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+	_In_opt_ HINSTANCE hPrevInstance,
+	_In_ LPWSTR    lpCmdLine,
+	_In_ int       nCmdShow)
 {
-    UNREFERENCED_PARAMETER(hPrevInstance);
-    UNREFERENCED_PARAMETER(lpCmdLine);
+	UNREFERENCED_PARAMETER(hPrevInstance);
+	UNREFERENCED_PARAMETER(lpCmdLine);
 
-    // TODO: 여기에 코드를 입력합니다.
-	AllocConsole();
-	errno_t err;
-	FILE *stream;
-	err = freopen_s(&stream, "CONOUT$", "w+", stdout);
+	// TODO: 여기에 코드를 입력합니다.
+	// 디버깅 콘솔
+	//AllocConsole();
+	//errno_t err;
+	//FILE *stream;
+	//err = freopen_s(&stream, "CONOUT$", "w+", stdout);
 
 	// 전역 문자열을 초기화합니다.
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -56,43 +53,58 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		return FALSE;
 	}
 
-    HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LAYERWINDOWTRAY));
+	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LAYERWINDOWTRAY));
 
-    MSG msg;
+	MSG msg;
 
-    // 기본 메시지 루프입니다.
-    while (GetMessage(&msg, nullptr, 0, 0))
-    {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-    }
+	// 기본 메시지 루프입니다.
+	while (GetMessage(&msg, nullptr, 0, 0))
+	{
+		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+	}
 
-    return (int) msg.wParam;
+	return (int)msg.wParam;
 }
 
 // 타이머마다 호출되는 콜백함수
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lparam) {
 
-	// 부모가 바탕화면인지
-	if (GetParent(hWnd) == 0) {
-		// 최소화인지 활성화인지
-		if (!IsIconic(hWnd)) {
-			// 이름 길이가 있는지
-			if (GetWindowTextLength(hWnd) > 0) {
-				// set WS_EX_LAYERED on this Window
-				SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-				// Current active windows ALPHA 95%, else windows 70%
-				if (hWnd == hWndActive) {
-					SetLayeredWindowAttributes(hWnd, 0, (255 * ACTIVE) / 100, LWA_ALPHA);
-				}
-				else {
-					SetLayeredWindowAttributes(hWnd, 0, (255 * INACTIVE) / 100, LWA_ALPHA);
+	try
+	{
+		// 부모가 바탕화면인지
+		if (GetParent(hWnd) == 0) {
+			// 최소화인지 활성화인지
+			if (!IsIconic(hWnd)) {
+				// 이름 길이가 있는지
+				if (GetWindowTextLength(hWnd) > 0) {
+					// set WS_EX_LAYERED on this Window
+					SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+					// Current active windows ALPHA 95%, else windows 70%
+					if (hWnd == hWndActive) {
+						SetLayeredWindowAttributes(hWnd, 0, (255 * ACTIVE) / 100, LWA_ALPHA);
+					}
+					else {
+						SetLayeredWindowAttributes(hWnd, 0, (255 * INACTIVE) / 100, LWA_ALPHA);
+					}
 				}
 			}
 		}
+	}
+	catch (...)
+	{
+		// Recovery
+
+		// Remove WS_EX_LAYERED from this Window styles
+		SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | ~WS_EX_LAYERED);
+		// Current active windows ALPHA rollback 
+		SetLayeredWindowAttributes(hWnd, 0, 255, LWA_ALPHA);
+		// Ask the window and its children to repaint
+		RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
+
 	}
 	return TRUE;
 }
@@ -107,10 +119,10 @@ BOOL CALLBACK EnumWindowsProcBack(HWND hWnd, LPARAM lparam) {
 			if (GetWindowTextLength(hWnd) > 0) {
 				// Remove WS_EX_LAYERED from this Window styles
 				SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | ~WS_EX_LAYERED);
-				// Ask the window and its children to repaint(???)
-				//RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
 				// Current active windows ALPHA rollback 
 				SetLayeredWindowAttributes(hWnd, 0, 255, LWA_ALPHA);
+				// Ask the window and its children to repaint
+				RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
 			}
 		}
 	}
@@ -157,21 +169,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // 인스턴스 핸들을 전역 변수에 저장합니다.
 
-	// TODO: Make this window substitute for Tray Icon with background process.
-	// 메뉴 만들기
-		//mainMenu = CreateMenu();
-		//HMENU activeMenu = CreatePopupMenu();
-		//HMENU inactiveMenu = CreatePopupMenu();
-		//AppendMenu(mainMenu, MF_STRING | MF_POPUP, (UINT_PTR)activeMenu, TEXT("ACTIVE"));
-		//AppendMenu(mainMenu, MF_STRING | MF_POPUP, (UINT_PTR)inactiveMenu, TEXT("INACTIVE"));
-		//for (int i = 5; i < 100; i += 5) {
-		//	TCHAR buffer[6];
-		//	wsprintf(buffer, L"%d", i);
-		//	AppendMenu(activeMenu, MF_STRING, ID_ACTIVE + i, buffer);
-		//	AppendMenu(inactiveMenu, MF_STRING, ID_INACTIVE + i, buffer);
-		//}
-		//AppendMenu(mainMenu, MF_STRING, ID_QUIT, TEXT("Quit"));
-
+					   // TODO: Make this window substitute for Tray Icon with background process.
 	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
 		0, 100, 0, 0, nullptr, nullptr, hInstance, nullptr);
 
@@ -180,8 +178,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return FALSE;
 	}
 
-	ShowWindow(hWnd, nCmdShow);
-	UpdateWindow(hWnd);
+	// 주 창 가리기
+	//ShowWindow(hWnd, nCmdShow);
+	//UpdateWindow(hWnd);
 
 	return TRUE;
 }
@@ -215,13 +214,26 @@ BOOL AddNotificationIcon(HWND hWnd)
 	// the icon will be identified with the GUID
 	nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP | NIF_GUID;
 	nid.uCallbackMessage = WMAPP_NOTIFYCALLBACK;
-	nid.hIcon = LoadIcon(hInst, MAKEINTRESOURCE(IDI_LAYERWINDOWTRAY));
+	nid.hIcon = LoadIcon(hInst, MAKEINTRESOURCE(IDC_LAYERWINDOWTRAY));
 	LoadString(hInst, IDC_LAYERWINDOWTRAY, nid.szTip, ARRAYSIZE(nid.szTip));
 	Shell_NotifyIcon(NIM_ADD, &nid);
 
 	// NOTIFYICON_VERSION_4 is prefered
 	nid.uVersion = NOTIFYICON_VERSION_4;
 	return Shell_NotifyIcon(NIM_SETVERSION, &nid);
+}
+
+BOOL AddNotificationPopup(HWND hWnd)
+{
+	NOTIFYICONDATA nid = { sizeof(nid) };
+	nid.hWnd = hWnd;
+	nid.uFlags = NIF_INFO;
+	nid.uTimeout = 200;
+	nid.dwInfoFlags = NIIF_INFO;
+	lstrcpy(nid.szInfoTitle, TEXT("LayerWindowTray"));
+	lstrcpy(nid.szInfo, TEXT("창 투명화 프로그램이 실행중입니다."));
+
+	return Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
 BOOL DeleteNotificationIcon()
@@ -267,17 +279,16 @@ void ShowContextMenu(HWND hWnd, POINT pt)
 //  목적:  주 창의 메시지를 처리합니다.
 //
 //  WM_COMMAND  - 응용 프로그램 메뉴를 처리합니다.
-//  WM_PAINT    - 주 창을 그립니다.
 //  WM_DESTROY  - 종료 메시지를 게시하고 반환합니다.
 //
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    switch (message)
-    {
+	switch (message)
+	{
 	case WM_CREATE:
 	{
-		hWndOld= GetForegroundWindow();
+		hWndOld = GetForegroundWindow();
 
 		// add the notification icon
 		if (!AddNotificationIcon(hWnd))
@@ -287,6 +298,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				L"Error adding icon", MB_OK);
 			return -1;
 		}
+
+		// add the notification popup
+		AddNotificationPopup(hWnd);
+
+
 		SetTimer(hWnd,						// handle to main window 
 			1,								// timer identifier 
 			200,							// 0.2-second interval 
@@ -303,29 +319,87 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
-		case ID_ACTIVE:
+		case ID_A20:
+			ACTIVE = 20;
 			break;
-		case ID_INACTIVE:
+		case ID_A30:
+			ACTIVE = 30;
+			break;
+		case ID_A40:
+			ACTIVE = 40;
+			break;
+		case ID_A50:
+			ACTIVE = 50;
+			break;
+		case ID_A60:
+			ACTIVE = 60;
+			break;
+		case ID_A70:
+			ACTIVE = 70;
+			break;
+		case ID_A80:
+			ACTIVE = 80;
+			break;
+		case ID_A90:
+			ACTIVE = 90;
+			break;
+		case ID_A95:
+			ACTIVE = 95;
+			break;
+		case ID_IN10:
+			INACTIVE = 10;
+			break;
+		case ID_IN20:
+			INACTIVE = 20;
+			break;
+		case ID_IN30:
+			INACTIVE = 30;
+			break;
+		case ID_IN40:
+			INACTIVE = 40;
+			break;
+		case ID_IN50:
+			INACTIVE = 50;
+			break;
+		case ID_IN60:
+			INACTIVE = 60;
+			break;
+		case ID_IN70:
+			INACTIVE = 70;
+			break;
+		case ID_IN80:
+			INACTIVE = 80;
+			break;
+		case ID_IN90:
+			INACTIVE = 90;
 			break;
 		case IDM_EXIT:
+			KillTimer(hWnd, 1);
+			EnumWindows(EnumWindowsProcBack, NULL);
+			DeleteNotificationIcon();
 			DestroyWindow(hWnd);
+			PostQuitMessage(0);
 			break;
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 	}
 	break;
-	case WM_TIMER: 
+	case WM_TIMER:
 	{
-		if (hWndOld != hWndActive) {
-			// Get Current Active Window
-			hWndActive = GetForegroundWindow();
+		// Get Current Active Window
+		hWndActive = GetForegroundWindow();
 
+		// Optimization
+		if (hWndOld != hWndActive || WM_MBUTTONUP) {
 			// All Windows Iteration
 			EnumWindows(EnumWindowsProc, NULL);
+
+			// Old Pointer
+			hWndOld = GetForegroundWindow();
 		}
 	}
-    break;
+	break;
 	case WMAPP_NOTIFYCALLBACK:
 	{
 		switch (lParam)
@@ -333,21 +407,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case WM_CONTEXTMENU:
 		{
 			GetCursorPos(&pt);
-			printf("%d, %d", pt.x, pt.y);
 			ShowContextMenu(hWnd, pt);
 		}
 		break;
 		}
 	}
 	break;
-    case WM_DESTROY:
+	case WM_DESTROY:
+		KillTimer(hWnd, 1);
 		EnumWindows(EnumWindowsProcBack, NULL);
 		DeleteNotificationIcon();
-		KillTimer(hWnd, 1);
-        PostQuitMessage(0);
-        break;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
-    }
-    return 0;
+		DestroyWindow(hWnd);
+		PostQuitMessage(0);
+		break;
+	default:
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+	return 0;
 }
