@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "layerwindowtray.h"
 #include <shellapi.h>
+#include <regex>
 // #include <stdio.h>
 
 #define MAX_LOADSTRING 100
@@ -16,7 +17,7 @@ HWND hWndOld, hWndActive;						// 활성화된 창입니다.
 UINT const WMAPP_NOTIFYCALLBACK = WM_APP + 1;
 POINT pt;
 int ACTIVE = 90;
-int INACTIVE = 40;
+int INACTIVE = 50;
 
 // 이 코드 모듈에 들어 있는 함수의 정방향 선언입니다.
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -90,28 +91,48 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lparam) {
 
 	try
 	{
+		// 안 보이는 창 필터링
+		if (!IsWindowVisible(hWnd)){
+			return TRUE;
+		}
 		// 부모가 바탕화면인지
-		if (GetParent(hWnd) == 0) {
-			// 최소화인지 활성화인지
-			if (!IsIconic(hWnd)) {
-				// 이름 길이가 있는지
-				if (GetWindowTextLength(hWnd) > 0) {
-					// set WS_EX_LAYERED on this Window
-					SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
-					// Current active windows ALPHA 95%, else windows 70%
-					if (hWnd == hWndActive) {
-						SetLayeredWindowAttributes(hWnd, 0, (255 * ACTIVE) / 100, LWA_ALPHA);
-					}
-					else {
-						SetLayeredWindowAttributes(hWnd, 0, (255 * INACTIVE) / 100, LWA_ALPHA);
-					}
-				}
-			}
+		if (GetParent(hWnd) != 0) {
+			return TRUE;
+		}
+		// 최소화된 창 건너뛰기
+		if (IsIconic(hWnd)) {
+			return TRUE;
+		}
+
+		// set WS_EX_LAYERED on this Window
+		SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+		// Current active windows ALPHA ACTIVE%, else windows INACTIVE%
+		if (hWnd == hWndActive) {
+			SetLayeredWindowAttributes(hWnd, 0, (255 * ACTIVE) / 100, LWA_ALPHA);
+		}
+		else {
+			SetLayeredWindowAttributes(hWnd, 0, (255 * INACTIVE) / 100, LWA_ALPHA);
 		}
 	}
 	catch (...)
 	{
-		// Recovery
+		return FALSE;
+	}
+	return TRUE;
+}
+
+// 주 창을 닫았을때 원래대로 되돌리는 콜백함수
+BOOL CALLBACK EnumWindowsProcBack(HWND hWnd, LPARAM lparam) {
+	try 
+	{
+		// 안 보이는 창 필터링
+		if (!IsWindowVisible(hWnd)){
+			return TRUE;
+		}
+		// 부모가 바탕화면인지
+		if (GetParent(hWnd) != 0) {
+			return TRUE;
+		}
 
 		// Remove WS_EX_LAYERED from this Window styles
 		SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | ~WS_EX_LAYERED);
@@ -119,28 +140,12 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lparam) {
 		SetLayeredWindowAttributes(hWnd, 0, 255, LWA_ALPHA);
 		// Ask the window and its children to repaint
 		RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
-
 	}
-	return TRUE;
-}
-
-// 주 창을 닫았을때 원래대로 되돌리는 콜백함수
-BOOL CALLBACK EnumWindowsProcBack(HWND hWnd, LPARAM lparam) {
-	// 부모가 바탕화면인지
-	if (GetParent(hWnd) == 0) {
-		// 최소화인지 활성화인지
-		if (!IsIconic(hWnd)) {
-			// 이름 길이가 있는지
-			if (GetWindowTextLength(hWnd) > 0) {
-				// Remove WS_EX_LAYERED from this Window styles
-				SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | ~WS_EX_LAYERED);
-				// Current active windows ALPHA rollback 
-				SetLayeredWindowAttributes(hWnd, 0, 255, LWA_ALPHA);
-				// Ask the window and its children to repaint
-				RedrawWindow(hWnd, NULL, NULL, RDW_ERASE | RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
-			}
-		}
+	catch (...)
+	{
+		return FALSE;
 	}
+
 	return TRUE;
 }
 
