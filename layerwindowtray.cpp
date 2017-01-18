@@ -308,6 +308,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_CREATE:
 	{
+		// Initialization
+		// Get Current Active Window
+		hWndActive = GetForegroundWindow();
+		// All Windows Iteration
+		EnumWindows(EnumWindowsProc, NULL);
+		// Old Pointer
 		hWndOld = GetForegroundWindow();
 
 		// add the notification icon
@@ -411,7 +417,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hWndActive = GetForegroundWindow();
 
 		// Optimization
-		if (hWndOld != hWndActive || WM_MBUTTONUP) {
+		if (hWndOld != hWndActive && WM_MBUTTONUP) {
 			// All Windows Iteration
 			EnumWindows(EnumWindowsProc, NULL);
 

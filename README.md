@@ -12,6 +12,10 @@ Windows API이므로 Windows 환경만 가능합니다.
 
 - 버그 찾기
 
+## 2017. 1. 18 Patch
+
+- 최적화: 불필요한 EnumWindows 실행 방지
+
 ## 2017. 1. 16 Patch
 
 - 비정상적인 종료 핸들링
