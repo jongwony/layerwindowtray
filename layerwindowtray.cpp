@@ -5,7 +5,7 @@
 #include "layerwindowtray.h"
 #include <shellapi.h>
 #include <regex>
-// #include <stdio.h>
+//#include <stdio.h>
 
 #define MAX_LOADSTRING 100
 
@@ -13,11 +13,12 @@
 HINSTANCE hInst;                                // 현재 인스턴스입니다.
 TCHAR szTitle[MAX_LOADSTRING];                  // 제목 표시줄 텍스트입니다.
 TCHAR szWindowClass[MAX_LOADSTRING];            // 기본 창 클래스 이름입니다.
-HWND hWndOld, hWndActive;						// 활성화된 창입니다.
-UINT const WMAPP_NOTIFYCALLBACK = WM_APP + 1;
-POINT pt;
+HWND hWndOld, hWndActive;						//hWndCapture;// 활성화된 창입니다.
+UINT const WMAPP_NOTIFYCALLBACK = WM_APP + 1;	// 사용자 정의 명령
+POINT gpt;										// 마우스 포인터 위치
 int ACTIVE = 90;
 int INACTIVE = 50;
+
 
 // 이 코드 모듈에 들어 있는 함수의 정방향 선언입니다.
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -27,10 +28,10 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 BOOL CALLBACK		EnumWindowsProc(HWND hWnd, LPARAM lparam);
 BOOL CALLBACK		EnumWindowsProcBack(HWND hWnd, LPARAM lparam);
-BOOL				AddNotificationIcon(HWND hWnd);
-BOOL				AddNotificationPopup(HWND hWnd);
-BOOL				DeleteNotificationIcon(void);
-void				ShowContextMenu(HWND hWnd, POINT pt);
+BOOL			AddNotificationIcon(HWND hWnd);
+BOOL			AddNotificationPopup(HWND hWnd);
+BOOL			DeleteNotificationIcon(void);
+void			ShowContextMenu(HWND hWnd, POINT pt);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -86,28 +87,40 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	return (int)msg.wParam;
 }
 
+// 커서가 창 안에 있는지
+BOOL IsCurInRect(RECT win) {
+	BOOL result = TRUE;
+	result &= win.left < gpt.x;
+	result &= gpt.x < win.right;
+	result &= win.top < gpt.y;
+	result &= gpt.y < win.bottom;
+	return result;
+}
+
 // 타이머마다 호출되는 콜백함수
 BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lparam) {
+	// 안 보이는 창 필터링
+	if (!IsWindowVisible(hWnd)) {
+		return TRUE;
+	}
+	// 부모가 바탕화면인지
+	if (GetParent(hWnd) != 0) {
+		return TRUE;
+	}
+	// 최소화된 창 건너뛰기
+	if (IsIconic(hWnd)) {
+		return TRUE;
+	}
+	// 마우스 영역 찾기
+	RECT rt;
+	GetWindowRect(hWnd, &rt);	
 
 	try
 	{
-		// 안 보이는 창 필터링
-		if (!IsWindowVisible(hWnd)){
-			return TRUE;
-		}
-		// 부모가 바탕화면인지
-		if (GetParent(hWnd) != 0) {
-			return TRUE;
-		}
-		// 최소화된 창 건너뛰기
-		if (IsIconic(hWnd)) {
-			return TRUE;
-		}
-
 		// set WS_EX_LAYERED on this Window
 		SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
 		// Current active windows ALPHA ACTIVE%, else windows INACTIVE%
-		if (hWnd == hWndActive) {
+		if (hWnd == hWndActive || IsCurInRect(rt)) {
 			SetLayeredWindowAttributes(hWnd, 0, (255 * ACTIVE) / 100, LWA_ALPHA);
 		}
 		else {
@@ -123,17 +136,16 @@ BOOL CALLBACK EnumWindowsProc(HWND hWnd, LPARAM lparam) {
 
 // 주 창을 닫았을때 원래대로 되돌리는 콜백함수
 BOOL CALLBACK EnumWindowsProcBack(HWND hWnd, LPARAM lparam) {
+	// 안 보이는 창 필터링
+	if (!IsWindowVisible(hWnd)) {
+		return TRUE;
+	}
+	// 부모가 바탕화면인지
+	if (GetParent(hWnd) != 0) {
+		return TRUE;
+	}
 	try 
 	{
-		// 안 보이는 창 필터링
-		if (!IsWindowVisible(hWnd)){
-			return TRUE;
-		}
-		// 부모가 바탕화면인지
-		if (GetParent(hWnd) != 0) {
-			return TRUE;
-		}
-
 		// Remove WS_EX_LAYERED from this Window styles
 		SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | ~WS_EX_LAYERED);
 		// Current active windows ALPHA rollback 
@@ -145,7 +157,6 @@ BOOL CALLBACK EnumWindowsProcBack(HWND hWnd, LPARAM lparam) {
 	{
 		return FALSE;
 	}
-
 	return TRUE;
 }
 
@@ -400,8 +411,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			INACTIVE = 90;
 			break;
 		case IDM_EXIT:
-			KillTimer(hWnd, 1);
 			EnumWindows(EnumWindowsProcBack, NULL);
+			KillTimer(hWnd, 1);
 			DeleteNotificationIcon();
 			DestroyWindow(hWnd);
 			PostQuitMessage(0);
@@ -416,14 +427,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// Get Current Active Window
 		hWndActive = GetForegroundWindow();
 
-		// Optimization
-		if (hWndOld != hWndActive && WM_MBUTTONUP) {
-			// All Windows Iteration
-			EnumWindows(EnumWindowsProc, NULL);
+		// Get Mouse Capture Window
+		GetCursorPos(&gpt);
+		//hWndCapture = WindowFromPoint(gpt);
 
-			// Old Pointer
-			hWndOld = GetForegroundWindow();
-		}
+		// Optimization
+		//if (hWndOld != hWndActive) {
+		// All Windows Iteration
+		EnumWindows(EnumWindowsProc, NULL);
+
+		// Old Pointer
+		hWndOld = hWndActive;
+		//}
 	}
 	break;
 	case WMAPP_NOTIFYCALLBACK:
@@ -432,16 +447,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 		case WM_CONTEXTMENU:
 		{
-			GetCursorPos(&pt);
-			ShowContextMenu(hWnd, pt);
+			//GetCursorPos(&gpt);
+			ShowContextMenu(hWnd, gpt);
 		}
 		break;
 		}
 	}
 	break;
 	case WM_DESTROY:
-		KillTimer(hWnd, 1);
 		EnumWindows(EnumWindowsProcBack, NULL);
+		KillTimer(hWnd, 1);
 		DeleteNotificationIcon();
 		DestroyWindow(hWnd);
 		PostQuitMessage(0);
