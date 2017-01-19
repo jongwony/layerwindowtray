@@ -8,13 +8,11 @@ Windows API이므로 Windows 환경만 가능합니다.
 
 ## TODO
 
-- 마우스 Hover 이벤트 추가
-
 - 버그 찾기
 
-## 2017. 1. 18 Patch
+## 2017. 1. 19 Patch
 
-- 최적화: 불필요한 EnumWindows 실행 방지
+- 마우스 Hover 이벤트 추가
 
 ## 2017. 1. 16 Patch
 
